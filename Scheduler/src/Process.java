@@ -9,6 +9,7 @@ public class Process {
     public double turnaroundTime;//time from start to finish.
     public double waitTime;//time spent waiting
     public double lastTimeAccessed;
+   // public double iotime = .02;
     /* total time spent so far in
         ready queue
         CPU
@@ -17,14 +18,14 @@ public class Process {
         cpu time remaining
 
 */
-    public Process(int ID, int startTime) {
-        this.ID              = ID;
+    public Process(int ID, int startTime, boolean io) {
+        this.ID          = ID;
         this.startTime   = startTime;
-        burstTime    = 1;
+        burstTime        = .5;
         turnaroundTime   = 0;
         waitTime         = 0;
         lastTimeAccessed = 0;
-        iobound = false;
+        this.iobound = io;
 
     }
 
