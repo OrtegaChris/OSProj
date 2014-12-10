@@ -18,10 +18,10 @@ public class Process {
         cpu time remaining
 
 */
-    public Process(int ID, int startTime, boolean io) {
+    public Process(int ID, double startTime, boolean io) {
         this.ID          = ID;
         this.startTime   = startTime;
-        burstTime        = .5;
+        burstTime        = 1;
         turnaroundTime   = 0;
         waitTime         = 0;
         lastTimeAccessed = 0;

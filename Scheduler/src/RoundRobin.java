@@ -1,36 +1,43 @@
 import java.util.*;
 
 public class RoundRobin extends Scheduler {
-    public double timeSlice = .01;
+    public double quantum = .01;
     public double iointerrupt = .02;
-    double simtime = 100;
+    double simtime = 1000;
     double contxt = .00005;
 
-    int  processcompleted = 0;
+    //int  processid = 1;
+    int processcompleted = 0;
 
 
-    @Override
     public void Run() {
 
         checkNewProcesses();
-        while (!readyqueue.isEmpty() && currentTime < simtime){
+        while (!readyqueue.isEmpty() && currentTime < simtime || !inactive.isEmpty()){
             checkNewProcesses();
             contextSwitch();
             //===========================================
             //This is for cpu bound processes
             //===========================================
-            if (!cpuqueue.get(0).iobound)
+            if(cpuqueue.isEmpty()){
+                System.out.printf("[time %.5fs][IDLE] Waiting. . .\n",currentTime);
+                currentTime = inactive.get(0).startTime;
+                System.out.printf("[time %.5fs][IDLE] Waiting. . . DONE! \n",currentTime);
+                contextSwitch();
+
+            }
+           else if (!cpuqueue.get(0).iobound)
             {
-                if(cpuqueue.get(0).burstTime - timeSlice < 0.0){
+                if(cpuqueue.get(0).burstTime - quantum < 0.0){
                     currentTime = cpuqueue.get(0).burstTime + currentTime;
                     cpuqueue.get(0).burstTime = 0;
-                    System.out.printf("[time %.5f s][Finished Process] Process " + cpuqueue.get(0).ID,currentTime);
+                    System.out.printf("[time %.5fs][Finished Process] Process " + cpuqueue.get(0).ID+"\n",currentTime);
                     contextSwitchDone();
                 }
                 else{
-                    cpuqueue.get(0).burstTime = cpuqueue.get(0).burstTime - timeSlice;
-                    System.out.println("debug burst time remaining: " + cpuqueue.get(0).burstTime);
-                    currentTime = currentTime + timeSlice;
+                    cpuqueue.get(0).burstTime = cpuqueue.get(0).burstTime - quantum;
+                    currentTime = currentTime + quantum;
+                    System.out.printf("[time %.5fs][Quantum Expired] Process "+cpuqueue.get(0).ID +"- CPU time remaining: %.6fs\n",currentTime,cpuqueue.get(0).burstTime);
                     contextSwitchDone();
                 }
             }
@@ -39,24 +46,25 @@ public class RoundRobin extends Scheduler {
                 //This is for io bound processes
                 //===========================================
 
-                if(cpuqueue.get(0).burstTime - timeSlice < 0.0){
-                    System.out.printf("[time %.5f s][IO-Interrupt] Process "+ cpuqueue.get(0).ID+"\n",currentTime);
+                if(cpuqueue.get(0).burstTime - quantum < 0.0){
+                    System.out.printf("[time %.5fs][IO-Interrupt] Process "+ cpuqueue.get(0).ID+"\n",currentTime);
                     currentTime += iointerrupt;
-                    System.out.printf("[time %.5f s][IO-Complete]Process "+ cpuqueue.get(0).ID+"\n",currentTime);
+                    System.out.printf("[time %.5fs][IO-Complete] Process "+ cpuqueue.get(0).ID+"\n",currentTime);
                     currentTime = cpuqueue.get(0).burstTime + currentTime;
                     cpuqueue.get(0).burstTime = 0;
-                    System.out.printf("[time %.5f s][Finished Process] Process " + cpuqueue.get(0).ID+"\n",currentTime);
+                    System.out.printf("[time %.5fs][Finished Process] Process " + cpuqueue.get(0).ID+"\n",currentTime);
                     contextSwitchDone();
                 }
                 else {
-                    System.out.printf("[time %.5f s][IO-Interrupt]Process "+ cpuqueue.get(0).ID+"\n",currentTime);
+                    System.out.printf("[time %.5fs][IO-Interrupt] Process "+ cpuqueue.get(0).ID+"\n",currentTime);
                     currentTime += iointerrupt;
-                    System.out.printf("[time %.5f s][IO-Complete]Process "+ cpuqueue.get(0).ID+"\n",currentTime);
-                    cpuqueue.get(0).burstTime = cpuqueue.get(0).burstTime - timeSlice;
-                    currentTime = currentTime + timeSlice;
-                    System.out.println("debug burst time remaining: " + cpuqueue.get(0).burstTime);
+                    System.out.printf("[time %.5fs][IO-Complete] Process "+ cpuqueue.get(0).ID+"\n",currentTime);
+                    cpuqueue.get(0).burstTime = cpuqueue.get(0).burstTime - quantum;
+                    currentTime = currentTime + quantum;
+                    System.out.printf("[time %.5fs][Quantum Expired] Process "+cpuqueue.get(0).ID +"- CPU time remaining: %.6fs\n",currentTime,cpuqueue.get(0).burstTime);
                     contextSwitchDone();
                 }
+
 
 
             }
@@ -74,7 +82,8 @@ public class RoundRobin extends Scheduler {
         while (!inactive.isEmpty() && inactive.get(0).startTime <= currentTime) {
             if(inactive.get(0).burstTime > 0) {
                 readyqueue.add(inactive.get(0));
-                System.out.printf("[time %.5f s][New Process]" + inactive.get(0).ID + " created.\n",inactive.get(0).startTime);
+
+                System.out.println("[time "+inactive.get(0).startTime+"s][New Process] " + inactive.get(0).ID + " created.");
                 inactive.remove(0);
             }
 
@@ -87,13 +96,17 @@ public class RoundRobin extends Scheduler {
     //This loads process onto cpu.
     //===========================================
     public void contextSwitch(){
-        Process t = readyqueue.get(0);
-        cpuqueue.add(t);
-        currentTime += .00005;
-        System.out.printf("[time %.5f s][Ready --> CPU] Process " +t.ID+"\n",currentTime);
-        readyqueue.remove(0);
+        if(readyqueue.isEmpty()){
+             currentTime += contxt;
+        }
+        else {
+            Process t = readyqueue.get(0);
+            cpuqueue.add(t);
+            currentTime += contxt;
+            System.out.printf("[time %.5fs][Ready --> CPU] Process " + t.ID + "\n", currentTime);
+            readyqueue.remove(0);
 
-
+        }
 
     }
     //===========================================================================================================
@@ -110,7 +123,7 @@ public class RoundRobin extends Scheduler {
         }
         else{
             readyqueue.add(p);
-            System.out.printf("[time %.5f s][CPU --> Ready]" +"Process: " +p.ID+"\n",currentTime);
+            System.out.printf("[time %.5fs][CPU --> Ready]" +" Process: " +p.ID+"\n",currentTime);
             cpuqueue.remove(0);
             currentTime +=contxt;
         }
